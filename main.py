@@ -3,8 +3,10 @@ from time import sleep
 from machine import Pin
 from machine import WDT
 from lcd import HD44780
+from ad9833 import AD9833
 
 display = HD44780()
+ad9833 = AD9833()
 
 # https://electrocredible.com/matrix-keypad-raspberry-pi-pico-micropython/
 #keyMatrix = [
@@ -40,7 +42,7 @@ running = 0 # 0 = off, 1 = on
 last_key = 0
 
 # 1/3 octaves:
-octaves_3 = [12.5, 16, 20, 25, 31.5, 40, 50, 63, 80, 100, 125, 160, 200, 250, 315, 400, 500, 630, 800, 1000,
+octaves_1_3 = [12.5, 16, 20, 25, 31.5, 40, 50, 63, 80, 100, 125, 160, 200, 250, 315, 400, 500, 630, 800, 1000,
     1250, 1600, 2000, 2500, 3150, 4000, 5000, 6300, 8000, 10000, 12500, 16000, 20000]
 
 for item in rowPins:
@@ -111,9 +113,9 @@ def handleKey():
             # Increase 1/3 octave
             new_frequency = 0
             for i in range(32):
-                octave_3 = octaves_3[i]
-                if octave_3 > frequency:
-                    frequency = octave_3
+                octave_1_3 = octaves_1_3[i]
+                if octave_1_3 > frequency:
+                    frequency = octave_1_3
                     break
             showFrequency(frequency)
         elif key == 11:
@@ -121,14 +123,15 @@ def handleKey():
             new_frequency = 0
             new_frequency_dec = 0
             for i in range(32, 0, -1):
-                octave_3 = octaves_3[i]
-                if octave_3  < frequency:
-                    frequency = octave_3
+                octave_1_3 = octaves_1_3[i]
+                if octave_1_3  < frequency:
+                    frequency = octave_1_3
                     break
             showFrequency(frequency)
 
         last_key = key
         showStatus()
+        updateAD8833()
         
     # debounce
     utime.sleep(0.1)
@@ -139,13 +142,25 @@ def showFrequency(freq_in):
     # Integer part is left filled (prefixed) to 10 characters
     display.set_string(" {:>10,}.{:} Hz".format(int(freq_in), int((freq_in % 1) * 10)))
 
+def updateAD8833():
+    if running:
+        ad9833.change_freq(frequency)
+        if wave == 0:   
+            ad9833.set_sine()
+        elif wave == 1:
+            ad9833.set_triangle()
+        elif wave == 2:
+            ad9833.set_square()
+    else:
+        ad9833.change_freq(0)
+
 def showStatus():
     display.set_line(1)
     wave_str = "Sine"
     running_str ="OFF"
     if wave == 1:
         wave_str = "Triangle"
-    if wave == 2:
+    elif wave == 2:
         wave_str = "Square"
     
     if running:
@@ -160,6 +175,7 @@ display.init()
 
 showFrequency(frequency)
 showStatus()
+updateAD8833()
 
 while True:
     handleKey()
