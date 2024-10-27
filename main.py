@@ -1,7 +1,7 @@
 import utime
 from time import sleep
 from machine import Pin
-from machine import WDT
+from mpy_decimal import *
 from lcd import HD44780
 from ad9833 import AD9833
 
@@ -33,17 +33,17 @@ column = []
 # 15 # - toggle sine / triangle / square
 # 14 * - decimal point
 
-frequency = 1000.0 # default to 1kHz
-new_frequency = 0.0
-max_freq = 12500000 # 12.5 MHz
-min_freq = 0.0
+frequency = DecimalNumber(10000, 1) # default to 1kHz
+new_frequency = DecimalNumber(0, 1)
+max_freq = DecimalNumber(125000000, 1) # 12.5 MHz
+min_freq = DecimalNumber(0, 1)
 wave = 0  # 0 = sine, 1 = triangle, 2 = square
 running = 0 # 0 = off, 1 = on
 last_key = 0
 
-# 1/3 octaves:
-octaves_1_3 = [12.5, 16, 20, 25, 31.5, 40, 50, 63, 80, 100, 125, 160, 200, 250, 315, 400, 500, 630, 800, 1000,
-    1250, 1600, 2000, 2500, 3150, 4000, 5000, 6300, 8000, 10000, 12500, 16000, 20000]
+# 1/3 octaves (multiplied by 10):
+octaves_1_3 = [125, 160, 200, 250, 315, 400, 500, 630, 800, 1000, 1250, 1600, 2000, 2500, 3150, 4000, 5000, 6300, 8000, 10000,
+    12500, 16000, 20000, 25000, 31500, 40000, 50000, 63000, 80000, 100000, 125000, 160000, 200000]
 
 for item in rowPins:
     row.append(Pin(item, Pin.OUT))
@@ -74,13 +74,14 @@ def handleKey():
     if key is not None:
         if key < 10:
             if last_key == 14:
-                new_frequency = int(new_frequency) + (key / 10.0)
+                # If 'dot' * was last pressed, this key will do the decimal part
+                new_frequency = new_frequency.to_int_truncate() + DecimalNumber(key, 1)
                 showFrequency(new_frequency)
             else:
                 if new_frequency == 0:
-                    new_frequency = key
+                    new_frequency = DecimalNumber(key, 0)
                 else:
-                    new_frequency = (new_frequency * 10) + key
+                    new_frequency = (new_frequency.to_int_truncate() * DecimalNumber(10, 0)) + DecimalNumber(key, 0)
                 if new_frequency <= max_freq:
                     showFrequency(new_frequency)
                 else:
@@ -91,14 +92,13 @@ def handleKey():
                     return
         elif key == 12:
             # Cancel
-            new_frequency = 0
-            new_frequency_dec = 0
+            new_frequency = DecimalNumber(0)
             showFrequency(frequency)
         elif key == 13:
             # Apply frequency, or toggle on/off
-            if new_frequency != frequency and new_frequency > 0.0:
+            if new_frequency != frequency and new_frequency > DecimalNumber(0):
                 frequency = new_frequency
-                new_frequency = 0
+                new_frequency = DecimalNumber(0)
                 running = True
             else:
                 running = not running
@@ -111,19 +111,18 @@ def handleKey():
                 wave = 0
         elif key == 10:
             # Increase 1/3 octave
-            new_frequency = 0
+            new_frequency = DecimalNumber(0)
             for i in range(32):
-                octave_1_3 = octaves_1_3[i]
+                octave_1_3 = DecimalNumber(octaves_1_3[i], 1)
                 if octave_1_3 > frequency:
                     frequency = octave_1_3
                     break
             showFrequency(frequency)
         elif key == 11:
             # Decrease 1/3 octave
-            new_frequency = 0
-            new_frequency_dec = 0
+            new_frequency = DecimalNumber(0)
             for i in range(32, 0, -1):
-                octave_1_3 = octaves_1_3[i]
+                octave_1_3 = DecimalNumber(octaves_1_3[i], 1)
                 if octave_1_3  < frequency:
                     frequency = octave_1_3
                     break
@@ -140,7 +139,7 @@ def showFrequency(freq_in):
     display.set_line(0)
     # Bug in format means only integers have thousands separator (,), so decimal is split into integer and fractional part
     # Integer part is left filled (prefixed) to 10 characters
-    display.set_string(" {:>10,}.{:} Hz".format(int(freq_in), int((freq_in % 1) * 10)))
+    display.set_string(" {:>12} Hz".format(freq_in.to_string_thousands()))
 
 def updateAD8833():
     if running:
@@ -152,7 +151,7 @@ def updateAD8833():
         elif wave == 2:
             ad9833.set_square()
     else:
-        ad9833.change_freq(0)
+        ad9833.change_freq(DecimalNumber(0))
 
 def showStatus():
     display.set_line(1)

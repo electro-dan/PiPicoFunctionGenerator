@@ -1,9 +1,10 @@
 from machine import Pin, SPI
 from time import sleep
+from mpy_decimal import *
 
 class AD9833:
     def __init__(self, sckPin = 10, misoPin=12, mosiPin=11, csPin=13):
-        self.spi = SPI(0, baudrate = 1000000, sck = Pin(sckPin, Pin.OUT),
+        self.spi = SPI(1, baudrate = 1000000, sck = Pin(sckPin, Pin.OUT),
                       miso = Pin(misoPin, Pin.OUT), mosi = Pin(mosiPin, Pin.OUT),
                       polarity = 1, phase = 1)
 
@@ -20,7 +21,7 @@ class AD9833:
         self.cs.value(1)
 
     def convert_freq(self, freq):
-        tmp = int(freq*2**28/self.MCLK)
+        tmp = (freq * 2 ** 28 / self.MCLK).to_int_truncate()
         return bytes([tmp >> 8 & 0x3f | 0x1 <<6, tmp & 0xff,
                 tmp >> 22 | 0x1 << 6, tmp >> 14 & 0xff])
 
