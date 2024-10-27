@@ -8,20 +8,16 @@ from ad9833 import AD9833
 display = HD44780()
 ad9833 = AD9833()
 
-# https://electrocredible.com/matrix-keypad-raspberry-pi-pico-micropython/
-#keyMatrix = [
-#    [ "1", "2", "3", "A" ],
-#    [ "4", "5", "6", "B" ],
-#    [ "7", "8", "9", "C" ],
-#    [ "*", "0", "#", "D" ]
-#]
+# based on https://electrocredible.com/matrix-keypad-raspberry-pi-pico-micropython/ 4×4
+# I used numbers instead of strings to make the maths better
 keyMatrixNum = [
     [ 1, 2, 3, 10 ],
     [ 4, 5, 6, 11 ],
     [ 7, 8, 9, 12 ],
     [ 14, 0, 15, 13 ]
 ]
-colPins = [7,6,5,4]
+# altered pins as I wired rows first
+colPins = [7,6,5,4] 
 rowPins = [3,2,1,0]
 row = []
 column = []
@@ -45,12 +41,14 @@ last_key = 0
 octaves_1_3 = [125, 160, 200, 250, 315, 400, 500, 630, 800, 1000, 1250, 1600, 2000, 2500, 3150, 4000, 5000, 6300, 8000, 10000,
     12500, 16000, 20000, 25000, 31500, 40000, 50000, 63000, 80000, 100000, 125000, 160000, 200000]
 
+# based on https://electrocredible.com/matrix-keypad-raspberry-pi-pico-micropython/
 for item in rowPins:
     row.append(Pin(item, Pin.OUT))
 for item in colPins:
     column.append(Pin(item, Pin.IN, Pin.PULL_DOWN))
 key = 0
 
+# based on https://electrocredible.com/matrix-keypad-raspberry-pi-pico-micropython/
 def scanKeypad():
     global key
     for rowKey in range(4):
@@ -62,7 +60,8 @@ def scanKeypad():
                 return(key)
         row[rowKey].value(0)
 
-
+# Runs constantly via the main method
+# this would be better as an async task to prevent blocking, but since it's the only task needed this is OK for now
 def handleKey():
     global last_key
     global frequency
@@ -87,7 +86,7 @@ def handleKey():
                 else:
                     display.set_line(1)
                     display.set_string("Err: Max 12.5MHz")
-                    new_frequency = 0
+                    new_frequency = DecimalNumber(0)
                     showFrequency(new_frequency)
                     return
         elif key == 12:
@@ -135,15 +134,17 @@ def handleKey():
     # debounce
     utime.sleep(0.1)
 
+# Format the frequency onto the LCD display
 def showFrequency(freq_in):
     display.set_line(0)
-    # Bug in format means only integers have thousands separator (,), so decimal is split into integer and fractional part
-    # Integer part is left filled (prefixed) to 10 characters
+    # Left filled with spaces (prefixed) to 12 characters
     display.set_string(" {:>12} Hz".format(freq_in.to_string_thousands()))
 
 def updateAD8833():
     if running:
+        # Set the frequency
         ad9833.change_freq(frequency)
+        # Apply the wave type
         if wave == 0:   
             ad9833.set_sine()
         elif wave == 1:
@@ -151,9 +152,11 @@ def updateAD8833():
         elif wave == 2:
             ad9833.set_square()
     else:
+        # Set frequency to 0 - effectively off
         ad9833.change_freq(DecimalNumber(0))
 
 def showStatus():
+    # The second line shows On/Off status and the wave type being output
     display.set_line(1)
     wave_str = "Sine"
     running_str ="OFF"
