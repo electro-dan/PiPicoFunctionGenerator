@@ -4,12 +4,19 @@ from machine import Pin
 from machine import WDT
 from machine import Timer
 from mpy_decimal import *
-from lcd import HD44780
+from machine import I2C
+from lcd_api import LcdApi
+from pico_i2c_lcd import I2cLcd
 from ad9833 import AD9833
 
 #wdt = WDT(timeout=8000)
-display = HD44780()
 ad9833 = AD9833()
+
+I2C_ADDR     = 0x27
+I2C_NUM_ROWS = 2
+I2C_NUM_COLS = 16
+
+i2c = I2C(0, sda=Pin(20), scl=Pin(21), freq=400000)
 
 # based on https://electrocredible.com/matrix-keypad-raspberry-pi-pico-micropython/ 4×4
 # I used numbers instead of strings to make the maths better
@@ -94,8 +101,8 @@ def handleKey():
                 if new_frequency <= max_freq:
                     showFrequency(new_frequency, True)
                 else:
-                    display.set_line(1)
-                    display.set_string("Err: Max 12.5MHz")
+                    lcd.move_to(0, 0)
+                    lcd.putstr("Err: Max 12.5MHz")
                     new_frequency = DecimalNumber(0)
                     showFrequency(new_frequency, True)
                     return
@@ -147,12 +154,12 @@ def handleKey():
 
 # Format the frequency onto the LCD display
 def showFrequency(freq_in, editing):
-    display.set_line(0)
+    lcd.move_to(0, 0)
     # Left filled with spaces (prefixed) to 12 characters
     if (editing & blink):
-        display.set_string(" {:>12}_Hz".format(freq_in.to_string_thousands()))
+        lcd.putstr(" {:>12}_Hz".format(freq_in.to_string_thousands()))
     else:
-        display.set_string(" {:>12} Hz".format(freq_in.to_string_thousands()))
+        lcd.putstr(" {:>12} Hz".format(freq_in.to_string_thousands()))
 
 def updateAD8833():
     # Set the frequency
@@ -167,7 +174,7 @@ def updateAD8833():
 
 def showStatus():
     # The second line shows On/Off status and the wave type being output
-    display.set_line(1)
+    lcd.move_to(0, 1)
     wave_str = "Sine"
     running_str ="ON"
     if wave == 1:
@@ -176,12 +183,13 @@ def showStatus():
         wave_str = "Square"
     
     # Wave type right filled (suffixed) to 13 characters, leaving 3 characters to display ON/OFF
-    display.set_string("{:<13}{:}".format(wave_str, running_str))
+    lcd.putstr("{:<13}{:}".format(wave_str, running_str))
 
 
 # Entry Here
 utime.sleep(1)
-display.init()
+
+lcd = I2cLcd(i2c, I2C_ADDR, I2C_NUM_ROWS, I2C_NUM_COLS)
 
 showFrequency(frequency, False)
 showStatus()
