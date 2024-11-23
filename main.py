@@ -87,6 +87,7 @@ def handleKey():
     key = scanKeypad()
     if key is not None:
         if key < 10:
+            # Numeric key 0 to 9 was pushed
             # Start a timer to interrupt every 1 second
             timer_blink.init(mode=Timer.PERIODIC, period=500, callback=flip_blink)
             if last_key == 14:
@@ -112,11 +113,12 @@ def handleKey():
             new_frequency = DecimalNumber(0)
             showFrequency(frequency, False)
         elif key == 13:
-            # Apply frequency, or toggle on/off
+            # OK key - Apply frequency, or toggle on/off
             timer_blink.deinit()
             if new_frequency != frequency and new_frequency > DecimalNumber(0):
                 frequency = new_frequency
                 new_frequency = DecimalNumber(0)
+                save_data()
 
             showFrequency(frequency, False)
         elif key == 15:
@@ -124,6 +126,7 @@ def handleKey():
             wave = wave + 1
             if wave > 2:
                 wave = 0
+            save_data()
         elif key == 10:
             # Increase 1/3 octave
             timer_blink.deinit()
@@ -186,8 +189,28 @@ def showStatus():
     lcd.putstr("{:<13}{:}".format(wave_str, running_str))
 
 
+# Save variables to the eeprom
+def save_data():
+    print('Saving variables...')
+    with open('config.txt', 'w+') as f:
+        f.write(str(frequency) + "|" + str(wave))
+
+# Read variables from the eeprom - done at boot
+def read_data():
+    global frequency
+    global wave
+
+    with open('config.txt', 'r') as f:
+        fdata = f.readline()
+        if len(fdata.split("|")) == 2:
+            frequency = DecimalNumber(fdata.split("|")[0])
+            print(frequency)
+            wave = int(fdata.split("|")[1])
+
 # Entry Here
-utime.sleep(1)
+# Read any existing saved data
+read_data()
+utime.sleep(0.1)
 
 lcd = I2cLcd(i2c, I2C_ADDR, I2C_NUM_ROWS, I2C_NUM_COLS)
 
